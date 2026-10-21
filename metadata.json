@@ -1,0 +1,6 @@
+{
+  "name": "Vin20K AI & ML Master Hub — Phase 1 & Phase 2",
+  "description": "Hệ thống ôn tập lý thuyết chuyên sâu (công thức toán, sơ đồ kiến trúc, ma trận thiết kế) và thi thử tính giờ nghiêm ngặt cho chương trình AI Vin20K Phase 1 (LLM & Agentic AI) và Phase 2 (Deep Learning, Computer Vision, Kalman Filter, 3D Point Clouds, BEV Fusion & VLA).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
