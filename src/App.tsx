@@ -3,11 +3,12 @@ import {
   BarChart3,
   BookOpen,
   Clock,
-  Cpu,
+  Headphones,
   Layers,
   Zap,
 } from 'lucide-react';
 import { ALL_CURRICULUM_DAYS, PHASE2_QUESTIONS } from './data/phase2Questions';
+import { PHASE2_PRODUCTION_PLAYBOOKS } from './data/phase2ProductionPlaybooks';
 import {
   AttemptRecord,
   ExamResult,
@@ -28,10 +29,15 @@ import {
   saveDayStatusMap,
   saveExamHistory,
 } from './services/studyStore';
+import {
+  buildDayLecturePlaylist,
+  LectureSegment,
+} from './services/audioTeacherService';
 import { CurriculumView } from './components/CurriculumView';
 import { TheoryReaderView } from './components/TheoryReaderView';
 import { ExamPreset, TimedExamView } from './components/TimedExamView';
 import { AnalyticsView } from './components/AnalyticsView';
+import { AudioLecturePlayer } from './components/AudioLecturePlayer';
 
 type ActiveNavTab = 'curriculum' | 'theory' | 'exam' | 'analytics';
 
@@ -55,6 +61,11 @@ export default function App() {
   );
   const [examPreset, setExamPreset] = useState<ExamPreset | null>(null);
 
+  // Audio Lecture Player State
+  const [audioPlaylist, setAudioPlaylist] = useState<LectureSegment[]>([]);
+  const [activeAudioIndex, setActiveAudioIndex] = useState<number>(0);
+  const [isAudioOpen, setIsAudioOpen] = useState<boolean>(false);
+
   useEffect(() => {
     let mounted = true;
     loadAllQuestions().then((loaded) => {
@@ -66,6 +77,30 @@ export default function App() {
       mounted = false;
     };
   }, []);
+
+  const handlePlayAudioPlaylist = useCallback(
+    (playlist: LectureSegment[], startIndex = 0) => {
+      if (playlist.length === 0) return;
+      setAudioPlaylist(playlist);
+      setActiveAudioIndex(Math.max(0, Math.min(startIndex, playlist.length - 1)));
+      setIsAudioOpen(true);
+    },
+    []
+  );
+
+  const handleListenDayLecture = useCallback(
+    (dayId: string) => {
+      const targetDay =
+        ALL_CURRICULUM_DAYS.find((d) => d.id === dayId) || ALL_CURRICULUM_DAYS[0];
+      const playbook = PHASE2_PRODUCTION_PLAYBOOKS[targetDay.id] || null;
+      const playlist = buildDayLecturePlaylist(targetDay, playbook);
+      setActiveTheoryDayId(targetDay.id);
+      setActiveNav('theory');
+      handlePlayAudioPlaylist(playlist, 0);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+    [handlePlayAudioPlaylist]
+  );
 
   const handleToggleDayStatus = useCallback((dayId: string) => {
     setDayStatusMap((prev) => {
@@ -98,8 +133,8 @@ export default function App() {
         mode: isQuick ? 'quick_quiz' : 'strict_exam',
         phaseFilter: phase,
         dayFilter: dayId,
-        questionCount: isQuick ? 10 : 30,
-        timeLimitMinutes: isQuick ? 15 : 35,
+        questionCount: isQuick ? 12 : 30,
+        timeLimitMinutes: isQuick ? 18 : 35,
         instantFeedback: isQuick,
         autoStart: true,
       });
@@ -115,8 +150,8 @@ export default function App() {
       mode: 'quick_quiz',
       phaseFilter: targetPhase,
       dayFilter: 'ALL',
-      questionCount: 10,
-      timeLimitMinutes: 15,
+      questionCount: 12,
+      timeLimitMinutes: 18,
       instantFeedback: true,
       autoStart: true,
     });
@@ -270,7 +305,7 @@ export default function App() {
               className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 px-3.5 py-2 text-xs font-semibold text-white whitespace-nowrap shrink-0 transition-colors cursor-pointer"
             >
               <Zap className="w-3.5 h-3.5" />
-              Kiểm tra nhanh 10 câu
+              Kiểm tra nhanh 12 câu
             </button>
           </div>
         </div>
@@ -290,6 +325,7 @@ export default function App() {
             onSetDayStatus={handleSetDayStatus}
             onOpenTheory={handleOpenTheory}
             onStartDayQuiz={handleStartDayQuiz}
+            onListenDayLecture={handleListenDayLecture}
           />
         )}
 
@@ -302,6 +338,7 @@ export default function App() {
             onSelectDay={setActiveTheoryDayId}
             onSetDayStatus={handleSetDayStatus}
             onStartDayQuiz={handleStartDayQuiz}
+            onPlayAudioPlaylist={handlePlayAudioPlaylist}
           />
         )}
 
@@ -317,6 +354,7 @@ export default function App() {
             onToggleBookmark={handleToggleBookmark}
             onSaveExamResult={handleSaveExamResult}
             onOpenTheoryDay={handleOpenTheory}
+            onPlayAudioPlaylist={handlePlayAudioPlaylist}
           />
         )}
 
@@ -335,6 +373,17 @@ export default function App() {
           />
         )}
       </main>
+
+      {/* Persistent Bottom Audio Lecture Player */}
+      {isAudioOpen && audioPlaylist.length > 0 && (
+        <AudioLecturePlayer
+          playlist={audioPlaylist}
+          activeIndex={activeAudioIndex}
+          isPlayingRequested={isAudioOpen}
+          onChangeIndex={setActiveAudioIndex}
+          onClose={() => setIsAudioOpen(false)}
+        />
+      )}
     </div>
   );
 }

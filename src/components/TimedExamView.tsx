@@ -5,6 +5,7 @@ import {
   ArrowRight,
   Bookmark,
   BookOpen,
+  Briefcase,
   CheckCircle2,
   Clock,
   Flag,
@@ -14,6 +15,7 @@ import {
   ShieldAlert,
   Sparkles,
   Trophy,
+  Volume2,
   XCircle,
   Zap,
 } from 'lucide-react';
@@ -22,17 +24,24 @@ import {
   CurriculumDay,
   ExamResult,
   PhaseId,
+  QuestionCategory,
   QuizQuestion,
 } from '../types/curriculum';
 import {
   buildExamQuestions,
+  categoryToLabel,
   computeTopicBreakdown,
 } from '../services/studyStore';
+import {
+  buildQuestionLectureScript,
+  LectureSegment,
+} from '../services/audioTeacherService';
 
 export interface ExamPreset {
   mode: 'strict_exam' | 'quick_quiz' | 'day_drill' | 'mistake_retest';
   phaseFilter: 'all' | 'phase1' | 'phase2';
   dayFilter: string;
+  categoryFilter?: QuestionCategory;
   questionCount: number;
   timeLimitMinutes: number;
   instantFeedback: boolean;
@@ -50,6 +59,7 @@ interface TimedExamViewProps {
   onToggleBookmark: (questionId: string) => void;
   onSaveExamResult: (result: ExamResult) => void;
   onOpenTheoryDay: (dayId: string) => void;
+  onPlayAudioPlaylist: (playlist: LectureSegment[], startIndex?: number) => void;
 }
 
 function formatSeconds(totalSec: number): string {
@@ -70,11 +80,13 @@ export const TimedExamView: React.FC<TimedExamViewProps> = ({
   onToggleBookmark,
   onSaveExamResult,
   onOpenTheoryDay,
+  onPlayAudioPlaylist,
 }) => {
   // Configurator state
   const [examMode, setExamMode] = useState<'strict_exam' | 'quick_quiz' | 'mistake_retest'>('strict_exam');
   const [phaseFilter, setPhaseFilter] = useState<'all' | 'phase1' | 'phase2'>('phase2');
   const [dayFilter, setDayFilter] = useState<string>('ALL');
+  const [categoryFilter, setCategoryFilter] = useState<QuestionCategory>('all');
   const [questionCount, setQuestionCount] = useState<number>(20);
   const [timeLimitMinutes, setTimeLimitMinutes] = useState<number>(25);
   const [instantFeedback, setInstantFeedback] = useState<boolean>(false);
@@ -110,6 +122,7 @@ export const TimedExamView: React.FC<TimedExamViewProps> = ({
       mode: 'strict_exam' | 'quick_quiz' | 'day_drill' | 'mistake_retest';
       phase: 'all' | 'phase1' | 'phase2';
       day: string;
+      category?: QuestionCategory;
       count: number;
       minutes: number;
       instant: boolean;
@@ -118,6 +131,7 @@ export const TimedExamView: React.FC<TimedExamViewProps> = ({
         allQuestions,
         phaseFilter: params.phase,
         dayFilter: params.day,
+        categoryFilter: params.category || 'all',
         questionCount: params.count,
         onlyMistakes: params.mode === 'mistake_retest',
         attemptsMap,
@@ -145,7 +159,6 @@ export const TimedExamView: React.FC<TimedExamViewProps> = ({
     [allQuestions, attemptsMap, bookmarkedIds]
   );
 
-  // Apply external preset when user clicks "Quiz nhanh" or "Thi tính giờ" from Curriculum or Theory view
   useEffect(() => {
     if (!initialPreset || allQuestions.length === 0) return;
 
@@ -158,6 +171,7 @@ export const TimedExamView: React.FC<TimedExamViewProps> = ({
     );
     setPhaseFilter(initialPreset.phaseFilter);
     setDayFilter(initialPreset.dayFilter);
+    setCategoryFilter(initialPreset.categoryFilter || 'all');
     setQuestionCount(initialPreset.questionCount);
     setTimeLimitMinutes(initialPreset.timeLimitMinutes);
     setInstantFeedback(initialPreset.instantFeedback);
@@ -167,6 +181,7 @@ export const TimedExamView: React.FC<TimedExamViewProps> = ({
         mode: initialPreset.mode,
         phase: initialPreset.phaseFilter,
         day: initialPreset.dayFilter,
+        category: initialPreset.categoryFilter || 'all',
         count: initialPreset.questionCount,
         minutes: initialPreset.timeLimitMinutes,
         instant: initialPreset.instantFeedback,
@@ -249,7 +264,6 @@ export const TimedExamView: React.FC<TimedExamViewProps> = ({
     submitRef.current = handleSubmitExam;
   }, [handleSubmitExam]);
 
-  // Countdown timer effect
   useEffect(() => {
     if (sessionState !== 'running') return;
 
@@ -272,7 +286,6 @@ export const TimedExamView: React.FC<TimedExamViewProps> = ({
   const handleSelectOption = useCallback(
     (letter: 'A' | 'B' | 'C' | 'D') => {
       if (!currentQuestion || sessionState !== 'running') return;
-      // In instantFeedback mode, once answered, still allow changing or record immediately
       setAnswers((prev) => ({ ...prev, [currentQuestion.id]: letter }));
       if (instantFeedback) {
         onRecordAttempt(
@@ -291,7 +304,6 @@ export const TimedExamView: React.FC<TimedExamViewProps> = ({
     );
   }, []);
 
-  // Keyboard shortcuts during running exam
   useEffect(() => {
     if (sessionState !== 'running' || !currentQuestion) return;
 
@@ -334,6 +346,7 @@ export const TimedExamView: React.FC<TimedExamViewProps> = ({
       allQuestions,
       phaseFilter,
       dayFilter,
+      categoryFilter,
       questionCount: 9999,
       onlyMistakes: examMode === 'mistake_retest',
       attemptsMap,
@@ -345,13 +358,13 @@ export const TimedExamView: React.FC<TimedExamViewProps> = ({
       <div className="max-w-4xl mx-auto space-y-6">
         <section className="rounded-xl border border-slate-800 bg-slate-900/80 p-6 space-y-3">
           <div className="text-xs font-mono uppercase tracking-wider text-indigo-400">
-            TRUNG TÂM KIỂM TRA NHANH & THI THỬ NGHIÊM NGẶT
+            TRUNG TÂM KIỂM TRA NHANH, THI THỬ & THỰC CHIẾN DỰ ÁN LỚN
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-50">
-            Cấu hình Ca Thi & Bài Kiểm Tra Kỹ Thuật
+            Cấu hình Ca Thi & Luyện Tập Kỹ Sư Chuyên Sâu
           </h1>
           <p className="text-sm text-slate-400 leading-relaxed">
-            Lựa chọn giữa <span className="text-slate-200 font-medium">Thi thử tính giờ nghiêm ngặt</span> (ẩn đáp án đến khi nộp bài, tự động thu bài khi hết giờ, chấm điểm theo chủ đề) hoặc <span className="text-slate-200 font-medium">Kiểm tra nhanh (Quick Quiz)</span> có giải thích chi tiết từng phương án A/B/C/D ngay lập tức.
+            Lựa chọn giữa <span className="text-slate-200 font-medium">Thi thử tính giờ nghiêm ngặt</span>, <span className="text-slate-200 font-medium">Kiểm tra nhanh (Quick Quiz)</span> giải thích tức thì từng phương án A/B/C/D, hoặc lọc chuyên biệt theo <span className="text-emerald-400 font-medium">Tình huống Thực chiến Dự án Lớn (Production System Design & Debugging)</span>.
           </p>
         </section>
 
@@ -362,8 +375,8 @@ export const TimedExamView: React.FC<TimedExamViewProps> = ({
             onClick={() => {
               setExamMode('strict_exam');
               setInstantFeedback(false);
-              setQuestionCount(20);
-              setTimeLimitMinutes(25);
+              setQuestionCount(24);
+              setTimeLimitMinutes(30);
             }}
             className={`text-left rounded-xl border p-5 transition-all cursor-pointer ${
               examMode === 'strict_exam'
@@ -388,8 +401,8 @@ export const TimedExamView: React.FC<TimedExamViewProps> = ({
             onClick={() => {
               setExamMode('quick_quiz');
               setInstantFeedback(true);
-              setQuestionCount(10);
-              setTimeLimitMinutes(15);
+              setQuestionCount(12);
+              setTimeLimitMinutes(18);
             }}
             className={`text-left rounded-xl border p-5 transition-all cursor-pointer ${
               examMode === 'quick_quiz'
@@ -415,6 +428,7 @@ export const TimedExamView: React.FC<TimedExamViewProps> = ({
               setExamMode('mistake_retest');
               setPhaseFilter('all');
               setDayFilter('ALL');
+              setCategoryFilter('all');
               setInstantFeedback(true);
               setQuestionCount(Math.min(15, Math.max(5, mistakePoolCount)));
               setTimeLimitMinutes(20);
@@ -451,8 +465,8 @@ export const TimedExamView: React.FC<TimedExamViewProps> = ({
               <div className="grid grid-cols-3 gap-2">
                 {(
                   [
-                    { id: 'phase2', label: 'Phase 2 (CV/3D/VLA)' },
-                    { id: 'phase1', label: 'Phase 1 (LLM/RAG)' },
+                    { id: 'phase2', label: 'Phase 2 (144 câu)' },
+                    { id: 'phase1', label: 'Phase 1 (2000 câu)' },
                     { id: 'all', label: 'Cả 2 Phase' },
                   ] as const
                 ).map((item) => (
@@ -496,13 +510,44 @@ export const TimedExamView: React.FC<TimedExamViewProps> = ({
               </select>
             </div>
 
+            {/* Question Category Filter (Theory vs Production Project vs Debugging) */}
+            <div className="space-y-2 md:col-span-2">
+              <label className="block text-xs font-mono uppercase text-slate-400">
+                3. Trọng tâm Câu hỏi (Lý thuyết Toán học vs Thực chiến Dự án Lớn & Debugging)
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                {(
+                  [
+                    { id: 'all', label: 'Tất cả thể loại' },
+                    { id: 'production_project', label: 'Dự án Lớn (Production)' },
+                    { id: 'debugging_edge_case', label: 'Chẩn đoán Lỗi & Edge Case' },
+                    { id: 'architecture', label: 'Kiến trúc & Tối ưu' },
+                    { id: 'theory_math', label: 'Lý thuyết & Toán học' },
+                  ] as const
+                ).map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setCategoryFilter(cat.id)}
+                    className={`py-2 px-3 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
+                      categoryFilter === cat.id
+                        ? 'border-emerald-500 bg-emerald-950/50 text-emerald-200'
+                        : 'border-slate-800 bg-slate-950 text-slate-300 hover:border-slate-700'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Question Count */}
             <div className="space-y-2">
               <label className="block text-xs font-mono uppercase text-slate-400">
-                3. Số lượng câu hỏi
+                4. Số lượng câu hỏi
               </label>
               <div className="flex flex-wrap gap-2">
-                {[6, 10, 15, 20, 30, 50, 72].map((cnt) => (
+                {[12, 18, 24, 36, 50, 72, 144].map((cnt) => (
                   <button
                     key={cnt}
                     type="button"
@@ -529,10 +574,10 @@ export const TimedExamView: React.FC<TimedExamViewProps> = ({
             {/* Time Limit */}
             <div className="space-y-2">
               <label className="block text-xs font-mono uppercase text-slate-400">
-                4. Thời gian làm bài (Phút)
+                5. Thời gian làm bài (Phút)
               </label>
               <div className="flex flex-wrap gap-2">
-                {[10, 15, 25, 40, 60, 90].map((min) => (
+                {[15, 25, 35, 45, 60, 90, 120].map((min) => (
                   <button
                     key={min}
                     type="button"
@@ -569,6 +614,7 @@ export const TimedExamView: React.FC<TimedExamViewProps> = ({
                   mode: examMode,
                   phase: phaseFilter,
                   day: dayFilter,
+                  category: categoryFilter,
                   count: questionCount,
                   minutes: timeLimitMinutes,
                   instant: examMode !== 'strict_exam',
@@ -649,10 +695,30 @@ export const TimedExamView: React.FC<TimedExamViewProps> = ({
                     {currentQuestion.phase === 'phase2' ? 'PHASE 2' : 'PHASE 1'}
                   </span>{' '}
                   · {currentQuestion.day_title} ·{' '}
-                  <span className="text-slate-300">{currentQuestion.topic}</span>
+                  <span className="text-emerald-400">
+                    {categoryToLabel(currentQuestion.questionCategory)}
+                  </span>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onPlayAudioPlaylist(
+                        [
+                          buildQuestionLectureScript(
+                            currentQuestion,
+                            showSolutionNow
+                          ),
+                        ],
+                        0
+                      )
+                    }
+                    className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/50 bg-emerald-950/30 px-2.5 py-1 text-xs font-medium text-emerald-300 hover:bg-emerald-900/50 transition-colors cursor-pointer"
+                  >
+                    <Volume2 className="w-3.5 h-3.5" />
+                    {showSolutionNow ? 'Nghe giảng đáp án' : 'Nghe đọc đề'}
+                  </button>
                   <button
                     type="button"
                     onClick={() => handleToggleFlag(currentQuestion.id)}
@@ -680,8 +746,21 @@ export const TimedExamView: React.FC<TimedExamViewProps> = ({
                 </div>
               </div>
 
+              {/* Project Scenario Context Box (if present) */}
+              {currentQuestion.projectScenario && (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-4 text-xs sm:text-sm text-amber-200 leading-relaxed">
+                  <span className="font-mono font-semibold uppercase text-amber-400">
+                    Tình huống Dự án Thực tế (Project Case Study):{' '}
+                  </span>
+                  {currentQuestion.projectScenario}
+                </div>
+              )}
+
               {/* Question Stem */}
               <div className="space-y-3">
+                <div className="text-xs font-mono text-slate-400">
+                  Chủ đề kỹ thuật: <span className="text-slate-200">{currentQuestion.topic}</span>
+                </div>
                 <h2 className="text-lg sm:text-xl font-semibold text-slate-50 leading-relaxed">
                   Câu {currentIndex + 1}: {currentQuestion.question}
                 </h2>
@@ -1119,7 +1198,10 @@ export const TimedExamView: React.FC<TimedExamViewProps> = ({
                       {isCorrect ? 'ĐÚNG' : userAns ? `SAI (Chọn ${userAns})` : 'BỎ TRỐNG'}
                     </span>{' '}
                     · Đáp án chuẩn: <strong className="text-emerald-300">{q.answer}</strong> ·{' '}
-                    {q.day_title} · {q.topic}
+                    {q.day_title} ·{' '}
+                    <span className="text-indigo-400">
+                      {categoryToLabel(q.questionCategory)}
+                    </span>
                   </div>
 
                   {hasTheoryDay && (
@@ -1129,10 +1211,19 @@ export const TimedExamView: React.FC<TimedExamViewProps> = ({
                       className="inline-flex items-center gap-1 text-xs font-medium text-indigo-400 hover:text-indigo-300 cursor-pointer"
                     >
                       <BookOpen className="w-3.5 h-3.5" />
-                      Ôn lại lý thuyết {q.day}
+                      Ôn lại lý thuyết & Playbook {q.day}
                     </button>
                   )}
                 </div>
+
+                {q.projectScenario && (
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-950/15 px-3.5 py-2 text-xs text-amber-200 leading-relaxed">
+                    <span className="font-mono font-semibold text-amber-400">
+                      Tình huống Dự án:{' '}
+                    </span>
+                    {q.projectScenario}
+                  </div>
+                )}
 
                 <h3 className="text-base font-semibold text-slate-100 leading-relaxed">
                   {idx + 1}. {q.question}

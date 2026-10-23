@@ -2,6 +2,13 @@ export type PhaseId = 'phase1' | 'phase2';
 
 export type StudyStatus = 'completed' | 'half' | 'in_progress' | 'not_started';
 
+export type QuestionCategory =
+  | 'all'
+  | 'theory_math'
+  | 'architecture'
+  | 'production_project'
+  | 'debugging_edge_case';
+
 export interface MathFormula {
   name: string;
   expression: string;
@@ -40,6 +47,23 @@ export interface TheorySection {
   productionTip?: string;
 }
 
+export interface ProductionPlaybook {
+  dayId: string;
+  projectTitle: string;
+  systemScaleSpec: string;
+  latencyAndMemorySLA: string[];
+  architectureDecisions: Array<{
+    decision: string;
+    rationale: string;
+    tradeoff: string;
+  }>;
+  failureModesAndFixes: Array<{
+    symptom: string;
+    rootCause: string;
+    engineeringFix: string;
+  }>;
+}
+
 export interface CurriculumDay {
   id: string;
   phase: PhaseId;
@@ -65,6 +89,8 @@ export interface QuizQuestion {
   day_title: string;
   topic: string;
   difficulty?: 'Cơ bản' | 'Thực chiến' | 'Chuyên sâu';
+  questionCategory?: Exclude<QuestionCategory, 'all'>;
+  projectScenario?: string;
   question: string;
   options: string[];
   answer: 'A' | 'B' | 'C' | 'D';

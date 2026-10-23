@@ -3,6 +3,7 @@ import {
   CurriculumDay,
   ExamResult,
   PhaseId,
+  QuestionCategory,
   QuizQuestion,
   StudyStatus,
   TopicAccuracyItem,
@@ -29,17 +30,29 @@ export async function loadAllQuestions(): Promise<QuizQuestion[]> {
       throw new Error(`HTTP ${res.status}`);
     }
     const raw = (await res.json()) as Array<Omit<QuizQuestion, 'phase'>>;
-    cachedPhase1Questions = raw.map((q) => ({
-      ...q,
-      id: `P1_${q.id}`,
-      phase: 'phase1' as PhaseId,
-      difficulty:
-        Number(q.id) % 3 === 0
-          ? 'Chuyên sâu'
-          : Number(q.id) % 2 === 0
-            ? 'Thực chiến'
-            : 'Cơ bản',
-    }));
+    cachedPhase1Questions = raw.map((q) => {
+      const numId = Number(q.id) || 0;
+      const category: Exclude<QuestionCategory, 'all'> =
+        numId % 4 === 0
+          ? 'production_project'
+          : numId % 4 === 1
+            ? 'theory_math'
+            : numId % 4 === 2
+              ? 'architecture'
+              : 'debugging_edge_case';
+      return {
+        ...q,
+        id: `P1_${q.id}`,
+        phase: 'phase1' as PhaseId,
+        questionCategory: category,
+        difficulty:
+          numId % 3 === 0
+            ? 'Chuyên sâu'
+            : numId % 2 === 0
+              ? 'Thực chiến'
+              : 'Cơ bản',
+      };
+    });
     return [...PHASE2_QUESTIONS, ...cachedPhase1Questions];
   } catch (err) {
     console.error('Could not load phase1_questions.json, falling back to Phase 2:', err);
@@ -102,6 +115,20 @@ export function statusToLabel(status: StudyStatus): string {
     case 'not_started':
     default:
       return 'CHƯA HỌC';
+  }
+}
+
+export function categoryToLabel(cat?: Exclude<QuestionCategory, 'all'>): string {
+  switch (cat) {
+    case 'production_project':
+      return 'Thực chiến Dự án Lớn (Production)';
+    case 'debugging_edge_case':
+      return 'Chẩn đoán Lỗi & Edge Cases';
+    case 'architecture':
+      return 'Kiến trúc & Tối ưu Hệ thống';
+    case 'theory_math':
+    default:
+      return 'Lý thuyết & Toán học Cốt lõi';
   }
 }
 
@@ -182,6 +209,7 @@ export interface BuildExamOptions {
   allQuestions: QuizQuestion[];
   phaseFilter: 'all' | 'phase1' | 'phase2';
   dayFilter: string; // 'ALL' or day.id e.g. 'P2_D01', 'Day 01', 'Track 01', etc.
+  categoryFilter?: QuestionCategory;
   questionCount: number;
   onlyMistakes?: boolean;
   onlyBookmarked?: boolean;
@@ -199,6 +227,10 @@ export function buildExamQuestions(opts: BuildExamOptions): QuizQuestion[] {
 
   if (opts.dayFilter && opts.dayFilter !== 'ALL') {
     pool = pool.filter((q) => q.day === opts.dayFilter);
+  }
+
+  if (opts.categoryFilter && opts.categoryFilter !== 'all') {
+    pool = pool.filter((q) => q.questionCategory === opts.categoryFilter);
   }
 
   if (opts.onlyMistakes && opts.attemptsMap) {

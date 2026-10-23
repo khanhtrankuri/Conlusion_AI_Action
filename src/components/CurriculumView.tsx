@@ -2,16 +2,11 @@ import React, { useMemo, useState } from 'react';
 import {
   BookOpen,
   CheckSquare,
-  ChevronRight,
-  Clock,
-  Cpu,
   Eye,
-  FileCode2,
-  Layers,
-  Play,
+  Headphones,
   Search,
-  Sparkles,
   Square,
+  Volume2,
   Zap,
 } from 'lucide-react';
 import {
@@ -34,6 +29,7 @@ interface CurriculumViewProps {
   onSetDayStatus: (dayId: string, status: StudyStatus) => void;
   onOpenTheory: (dayId: string) => void;
   onStartDayQuiz: (dayId: string, phase: PhaseId, mode: 'quick_quiz' | 'strict_exam') => void;
+  onListenDayLecture: (dayId: string) => void;
 }
 
 const PHASE1_SPECIAL_TRACKS = [
@@ -80,6 +76,7 @@ export const CurriculumView: React.FC<CurriculumViewProps> = ({
   onSetDayStatus,
   onOpenTheory,
   onStartDayQuiz,
+  onListenDayLecture,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [layoutMode, setLayoutMode] = useState<'combined' | 'checklist'>('combined');
@@ -146,19 +143,19 @@ export const CurriculumView: React.FC<CurriculumViewProps> = ({
   }, [days, dayStatusMap]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-24">
       {/* Hero & Phase Overview Banner */}
       <section className="rounded-xl border border-slate-800 bg-slate-900/70 p-6">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-2 max-w-3xl">
             <div className="text-xs font-mono uppercase tracking-wider text-indigo-400">
-              HỆ THỐNG ÔN TẬP CHUYÊN SÂU · VIN20K AI & MACHINE LEARNING
+              HỆ THỐNG ÔN TẬP & GIẢNG DẠY ÂM THANH · VIN20K AI & MACHINE LEARNING
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-50">
-              Lộ trình Lý thuyết Chuyên sâu & Ngân hàng Kiểm tra Thực chiến
+              Lộ trình Lý thuyết Chuyên sâu, Giảng viên Âm thanh & Thực chiến Dự án Lớn
             </h1>
             <p className="text-sm text-slate-400 leading-relaxed">
-              Tích hợp toàn diện <span className="text-slate-200 font-medium">Phase 2 (12 Days)</span> chuyên sâu về Neural Networks, 2D/3D Vision, Kalman Filter, Point Clouds, BEV Sensor Fusion, VLA, Closed-Loop Evaluation và <span className="text-slate-200 font-medium">Phase 1 (15 Days + 5 Tracks)</span> về LLM, RAG, Agentic Systems & Production AI.
+              Tích hợp toàn diện <span className="text-slate-200 font-medium">Phase 2 (12 Days · 144 câu hỏi dự án & lý thuyết)</span> về Neural Networks, 2D/3D Vision, Kalman Filter, Point Clouds, BEV Sensor Fusion, VLA, Closed-Loop Evaluation và <span className="text-slate-200 font-medium">Phase 1 (15 Days + 5 Tracks · 2,000 câu hỏi)</span>, kèm tính năng <span className="text-emerald-400 font-medium">Giảng viên Âm thanh & Podcast 2 Chuyên gia</span>.
             </p>
           </div>
 
@@ -188,7 +185,7 @@ export const CurriculumView: React.FC<CurriculumViewProps> = ({
                 {allQuestions.length.toLocaleString()}
               </div>
               <div className="text-xs text-slate-500 font-mono tabular-nums">
-                72 P2 · 2,000 P1
+                144 P2 · 2,000 P1
               </div>
             </div>
           </div>
@@ -319,7 +316,7 @@ export const CurriculumView: React.FC<CurriculumViewProps> = ({
         </section>
       )}
 
-      {/* Interactive Checklist Mode (Matches Screenshot UI + Direct Study/Quiz Actions) */}
+      {/* Interactive Checklist Mode (Matches Screenshot UI + Direct Study/Audio/Quiz Actions) */}
       {layoutMode === 'checklist' ? (
         <section className="rounded-xl border border-slate-800 bg-slate-900/60 divide-y divide-slate-800/80">
           {filteredDays.map((day) => {
@@ -367,7 +364,6 @@ export const CurriculumView: React.FC<CurriculumViewProps> = ({
                 </div>
 
                 <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 pl-8 sm:pl-0">
-                  {/* Status & Progress Bar matching the screenshot */}
                   <div className="flex flex-col items-end w-32">
                     <button
                       type="button"
@@ -401,6 +397,15 @@ export const CurriculumView: React.FC<CurriculumViewProps> = ({
                   </div>
 
                   <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onListenDayLecture(day.id)}
+                      title="Nghe giảng âm thanh bài này"
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-950/30 text-xs font-medium text-emerald-300 hover:bg-emerald-900/50 transition-colors cursor-pointer"
+                    >
+                      <Volume2 className="w-3.5 h-3.5" />
+                      Nghe giảng
+                    </button>
                     <button
                       type="button"
                       onClick={() => onOpenTheory(day.id)}
@@ -526,7 +531,7 @@ export const CurriculumView: React.FC<CurriculumViewProps> = ({
                         Công thức trọng tâm ({day.formulas.length})
                       </span>
                       <span className="font-mono text-slate-500">
-                        {day.sections.length} chuyên đề lý thuyết
+                        {day.sections.length} chuyên đề · Cẩm nang dự án
                       </span>
                     </div>
                     <div className="font-mono text-xs text-indigo-300 truncate">
@@ -555,14 +560,22 @@ export const CurriculumView: React.FC<CurriculumViewProps> = ({
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onListenDayLecture(day.id)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-950/30 px-3 py-2 text-xs font-medium text-emerald-300 hover:bg-emerald-900/50 transition-colors cursor-pointer"
+                    >
+                      <Headphones className="w-3.5 h-3.5" />
+                      Nghe giảng
+                    </button>
                     <button
                       type="button"
                       onClick={() => onOpenTheory(day.id)}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/90 px-3 py-2 text-xs font-medium text-slate-100 hover:border-indigo-500 hover:bg-slate-800 transition-colors cursor-pointer"
                     >
                       <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
-                      Đọc lý thuyết & Sơ đồ
+                      Lý thuyết & Sơ đồ
                     </button>
                     <button
                       type="button"
@@ -570,7 +583,7 @@ export const CurriculumView: React.FC<CurriculumViewProps> = ({
                       className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-medium text-white hover:bg-indigo-500 transition-colors cursor-pointer"
                     >
                       <Zap className="w-3.5 h-3.5" />
-                      Kiểm tra nhanh
+                      Kiểm tra
                     </button>
                   </div>
                 </div>
@@ -628,7 +641,7 @@ export const CurriculumView: React.FC<CurriculumViewProps> = ({
                         onClick={() => onStartDayQuiz(track.id, 'phase1', 'quick_quiz')}
                         className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-indigo-600 text-xs font-medium text-slate-200 hover:text-white transition-colors cursor-pointer"
                       >
-                        Quiz 10 câu
+                        Quiz 12 câu
                       </button>
                       <button
                         type="button"
